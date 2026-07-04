@@ -1,0 +1,51 @@
+name: Kainos ir įspėjimai
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # kas 15 min (GitHub gali vėluoti kelias min)
+  workflow_dispatch: {}        # rankinis paleidimas iš Actions skirtuko
+
+# leidžiam workflow'ui commitinti data/prices.json atgal į repo
+permissions:
+  contents: write
+
+concurrency:
+  group: prices
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch prices + alerts
+        env:
+          # --- pranešimai: įrašyk savo ntfy temą per Secrets (Settings → Secrets → Actions) ---
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_SERVER: ${{ secrets.NTFY_SERVER }}   # nebūtina; numatyta https://ntfy.sh
+          # --- kainos dedamosios (turi sutapti su app nustatymais) ---
+          THRESHOLD_CT: "10.0"
+          MARZA_CT: "1.29"
+          ESO_CT: "6.50"
+          PVM_PCT: "21"
+        run: python scripts/fetch_prices.py
+
+      - name: Commit snapshot
+        run: |
+          git config user.name "prices-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/prices.json data/notify_state.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "Pokyčių nėra."
+          else
+            git commit -m "Atnaujintos kainos $(date -u +%H:%M) UTC"
+            git push
+          fi
+
