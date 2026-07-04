@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0A0E13" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Biržos elektra" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./icons/icon-180.png" />
+<title>Biržos elektra · LT</title>
+<style>
+  :root{
+    /* graphite instrument base */
+    --bg:#0A0E13;
+    --panel:#111823;
+    --panel-2:#0E141D;
+    --line:#1E2A38;
+    --line-soft:#18222E;
+    --ink:#EAF1F8;
+    --ink-dim:#8595A6;
+    --ink-faint:#54626F;
+    /* price signal ramp: cheap -> mid -> dear */
+    --cheap:#22D3B7;
+    --cheap-2:#16B79E;
+    --mid:#E7B008;
+    --dear:#F4556E;
+    --live:#4FB8F5;
+    --shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px rgba(0,0,0,.45);
+    --r:16px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(79,184,245,.06), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font:400 16px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:
+      max(14px, env(safe-area-inset-top)) 14px
+      calc(28px + env(safe-area-inset-bottom)) 14px;
+    max-width:560px;margin:0 auto;
+  }
+  h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.01em}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+  .dim{color:var(--ink-dim)}
+  .faint{color:var(--ink-faint)}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;gap:10px;margin:2px 2px 16px}
+  .brand{display:flex;flex-direction:column;gap:2px}
+  .brand h1{font-size:16px}
+  .brand .sub{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+  .status{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-dim)}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 0 0 rgba(79,184,245,.6);animation:pulse 2.4s ease-out infinite}
+  .live-dot.stale{background:var(--ink-faint);animation:none;box-shadow:none}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(79,184,245,.5)}70%{box-shadow:0 0 0 9px rgba(79,184,245,0)}100%{box-shadow:0 0 0 0 rgba(79,184,245,0)}}
+
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+  section{margin-bottom:14px}
+
+  /* ---------- hero gauge ---------- */
+  .hero{padding:20px 18px 18px;position:relative;overflow:hidden}
+  .hero .band-tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.02em;padding:5px 11px;border-radius:999px;border:1px solid currentColor}
+  .band-tag .swatch{width:8px;height:8px;border-radius:2px;background:currentColor}
+  .price-row{display:flex;align-items:baseline;gap:10px;margin:14px 0 2px}
+  .price-big{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;font-size:56px;line-height:.95;font-weight:600;letter-spacing:-.02em}
+  .price-unit{font-size:15px;color:var(--ink-dim);font-weight:600}
+  .price-sub{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink-dim);margin-top:6px}
+  .price-sub b{color:var(--ink);font-weight:600}
+  .delta{font-weight:600}
+  .advice{margin-top:16px;padding:12px 13px;border-radius:12px;background:rgba(255,255,255,.02);border:1px solid var(--line-soft);font-size:13.5px;display:flex;gap:10px;align-items:flex-start}
+  .advice .ic{font-size:16px;line-height:1.2;flex:none}
+  .advice b{font-weight:650}
+
+  /* ---------- day strip (signature) ---------- */
+  .strip-head{display:flex;align-items:center;gap:8px;padding:14px 16px 0}
+  .strip-head h3{font-size:13px;letter-spacing:.02em}
+  .seg-toggle{margin-left:auto;display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .seg-toggle button{font-size:12px;font-weight:600;padding:5px 12px;border-radius:999px;color:var(--ink-dim)}
+  .seg-toggle button[aria-selected="true"]{background:var(--line);color:var(--ink)}
+  .strip-wrap{padding:12px 16px 16px}
+  .daystrip{display:flex;gap:1.5px;height:64px;align-items:flex-end}
+  .daystrip .seg{flex:1;border-radius:2px 2px 1px 1px;min-width:0;transition:opacity .2s;position:relative}
+  .daystrip .seg.now{outline:1.5px solid var(--live);outline-offset:1px;border-radius:2px}
+  .daystrip .seg.past{opacity:.34}
+  .strip-axis{display:flex;justify-content:space-between;margin-top:7px;font-size:10.5px;color:var(--ink-faint)}
+  .readout{margin-top:10px;font-size:12.5px;color:var(--ink-dim);min-height:18px;display:flex;justify-content:space-between;gap:10px}
+  .readout b{color:var(--ink)}
+
+  /* ---------- chart ---------- */
+  .chart-head{display:flex;align-items:center;padding:14px 16px 0;gap:8px}
+  .chart-head h3{font-size:13px}
+  .chart-head .legend{margin-left:auto;font-size:11px;color:var(--ink-faint);display:flex;gap:12px}
+  .chart-head .legend i{font-style:normal;display:inline-flex;align-items:center;gap:5px}
+  .chart-head .legend .k{width:14px;height:3px;border-radius:2px;display:inline-block}
+  .chart-wrap{padding:8px 8px 14px}
+  svg.chart{display:block;width:100%;height:190px;overflow:visible}
+  .chart-tip{padding:0 16px 14px;font-size:12.5px;color:var(--ink-dim);min-height:18px}
+  .chart-tip b{color:var(--ink)}
+
+  /* ---------- windows / recommendations ---------- */
+  .win-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px 16px}
+  .win{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel-2)}
+  .win .lab{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);display:flex;align-items:center;gap:6px}
+  .win .val{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:20px;font-weight:600;margin-top:6px}
+  .win .rng{font-size:12px;color:var(--ink-dim);margin-top:3px}
+  .win .dot{width:7px;height:7px;border-radius:2px}
+  .next-cheap{grid-column:1 / -1;display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:12px 13px;background:linear-gradient(180deg, rgba(34,211,183,.06), transparent)}
+  .next-cheap .big{font-family:ui-monospace,monospace;font-size:17px;font-weight:600;color:var(--cheap)}
+  .loads{padding:0 16px 16px;display:flex;flex-direction:column;gap:8px}
+  .load{display:flex;align-items:center;gap:11px;padding:10px 11px;border:1px solid var(--line-soft);border-radius:11px;background:rgba(255,255,255,.015)}
+  .load .ic{font-size:17px;flex:none;width:22px;text-align:center}
+  .load .nm{font-size:13.5px;font-weight:600}
+  .load .hint{font-size:12px;color:var(--ink-dim)}
+  .load .win-badge{margin-left:auto;font-family:ui-monospace,monospace;font-size:12.5px;font-weight:600;padding:4px 9px;border-radius:8px;border:1px solid currentColor;white-space:nowrap}
+
+  /* ---------- stats ---------- */
+  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);border-radius:12px;overflow:hidden;margin:14px 16px 16px}
+  .stat{background:var(--panel-2);padding:13px 12px}
+  .stat .k{font-size:11px;color:var(--ink-faint);letter-spacing:.04em}
+  .stat .v{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:19px;font-weight:600;margin-top:5px}
+  .stat .u{font-size:11px;color:var(--ink-dim)}
+
+  /* ---------- forecast ---------- */
+  .fc{padding:8px 12px 14px}
+  .fc-day{padding:8px 4px}
+  .fc-day .fh{display:flex;align-items:baseline;gap:8px;padding:0 4px 6px}
+  .fc-day .fh .d{font-size:13px;font-weight:600}
+  .fc-day .fh .avg{margin-left:auto;font-family:ui-monospace,monospace;font-size:12.5px;color:var(--ink-dim)}
+  .fc-strip{display:flex;gap:1.5px;height:34px;align-items:flex-end}
+  .fc-strip .seg{flex:1;border-radius:1.5px;min-width:0}
+
+  /* ---------- settings ---------- */
+  details.set{padding:0}
+  details.set>summary{list-style:none;cursor:pointer;padding:15px 16px;display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600}
+  details.set>summary::-webkit-details-marker{display:none}
+  details.set>summary .chev{margin-left:auto;color:var(--ink-faint);transition:transform .2s}
+  details.set[open]>summary .chev{transform:rotate(90deg)}
+  .set-body{padding:0 16px 16px;display:flex;flex-direction:column;gap:2px}
+  .field{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line-soft)}
+  .field:first-child{border-top:0}
+  .field label{font-size:13.5px;flex:1}
+  .field label small{display:block;color:var(--ink-faint);font-size:11.5px;font-weight:400;margin-top:2px}
+  .field input[type=number]{width:96px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 10px;font:inherit;font-family:ui-monospace,monospace;text-align:right}
+  .field input[type=number]:focus{outline:none;border-color:var(--live)}
+  .switch{position:relative;width:46px;height:28px;flex:none}
+  .switch input{opacity:0;width:0;height:0;position:absolute}
+  .switch .sl{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.2s}
+  .switch .sl::before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#cdd8e2;border-radius:50%;transition:.2s}
+  .switch input:checked + .sl{background:var(--cheap-2)}
+  .switch input:checked + .sl::before{transform:translateX(18px);background:#fff}
+
+  .note{font-size:11.5px;color:var(--ink-faint);line-height:1.5;padding:2px 2px 0}
+  .btn{display:inline-flex;align-items:center;gap:8px;justify-content:center;width:100%;padding:12px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:600;font-size:13.5px;color:var(--ink);margin-top:6px}
+  .btn:active{transform:translateY(1px)}
+  .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#0c1420;border:1px solid var(--line);color:var(--ink);padding:11px 16px;border-radius:12px;font-size:13px;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:calc(100% - 28px)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .foot{text-align:center;color:var(--ink-faint);font-size:11px;line-height:1.6;margin-top:6px}
+  .foot a{color:var(--ink-dim)}
+  .skeleton{color:var(--ink-faint)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Biržos elektra</h1>
+    <div class="sub">Nord Pool · LT · 15 min</div>
+  </div>
+  <div class="status">
+    <span id="statusText" class="skeleton">Kraunama…</span>
+    <span id="liveDot" class="live-dot stale"></span>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="card hero" id="hero">
+  <span class="band-tag" id="bandTag" style="color:var(--ink-dim)"><span class="swatch"></span><span id="bandName">—</span></span>
+  <div class="price-row">
+    <span class="price-big mono" id="priceBig">—</span>
+    <span class="price-unit">ct/kWh</span>
+  </div>
+  <div class="price-sub">
+    <span>Biržos kaina: <b class="mono" id="pxSpot">—</b> ct/kWh</span>
+    <span>vs 24 h vid.: <b class="mono delta" id="pxDelta">—</b></span>
+  </div>
+  <div class="advice" id="advice">
+    <span class="ic" id="adviceIc">⚡</span>
+    <span id="adviceText">Analizuoju kainas…</span>
+  </div>
+</section>
+
+<!-- DAY STRIP -->
+<section class="card">
+  <div class="strip-head">
+    <h3>Paros kainos</h3>
+    <div class="seg-toggle" role="tablist">
+      <button role="tab" id="tabToday" aria-selected="true" onclick="setDay(0)">Šiandien</button>
+      <button role="tab" id="tabTom" aria-selected="false" onclick="setDay(1)">Rytoj</button>
+    </div>
+  </div>
+  <div class="strip-wrap">
+    <div class="daystrip" id="daystrip"></div>
+    <div class="strip-axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+    <div class="readout" id="stripReadout"><span class="faint">Palieskite juostą</span><span></span></div>
+  </div>
+</section>
+
+<!-- CHART -->
+<section class="card">
+  <div class="chart-head">
+    <h3>Kreivė</h3>
+    <div class="legend">
+      <i><span class="k" style="background:var(--cheap)"></span>pigu</i>
+      <i><span class="k" style="background:var(--dear)"></span>brangu</i>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <svg class="chart" id="chart" viewBox="0 0 700 190" preserveAspectRatio="none"
+         onpointermove="chartHover(event)" onpointerleave="chartLeave()"></svg>
+  </div>
+  <div class="chart-tip" id="chartTip"></div>
+</section>
+
+<!-- WINDOWS + RECS -->
+<section class="card">
+  <div class="win-grid" id="winGrid">
+    <div class="next-cheap" id="nextCheap"><span class="faint">…</span></div>
+    <div class="win">
+      <div class="lab"><span class="dot" style="background:var(--cheap)"></span>Pigiausia</div>
+      <div class="val mono" id="wMinV">—</div>
+      <div class="rng" id="wMinR">—</div>
+    </div>
+    <div class="win">
+      <div class="lab"><span class="dot" style="background:var(--dear)"></span>Brangiausia</div>
+      <div class="val mono" id="wMaxV">—</div>
+      <div class="rng" id="wMaxR">—</div>
+    </div>
+  </div>
+  <div class="loads" id="loads"></div>
+</section>
+
+<!-- STATS -->
+<section class="card">
+  <div class="strip-head"><h3>Statistika</h3><span class="dim" style="margin-left:auto;font-size:12px" id="statScope">šiandien</span></div>
+  <div class="stats">
+    <div class="stat"><div class="k">Vidurkis</div><div class="v mono" id="sAvg">—</div><div class="u">ct/kWh</div></div>
+    <div class="stat"><div class="k">Min</div><div class="v mono" id="sMin">—</div><div class="u">ct/kWh</div></div>
+    <div class="stat"><div class="k">Maks</div><div class="v mono" id="sMax">—</div><div class="u">ct/kWh</div></div>
+    <div class="stat"><div class="k">7 d. vid.</div><div class="v mono" id="sWeek">—</div><div class="u">ct/kWh</div></div>
+    <div class="stat"><div class="k">Pigių val.</div><div class="v mono" id="sCheapH">—</div><div class="u">&lt; slenksčio</div></div>
+    <div class="stat"><div class="k">Sklaida</div><div class="v mono" id="sSpread">—</div><div class="u">maks−min</div></div>
+  </div>
+</section>
+
+<!-- FORECAST -->
+<section class="card">
+  <div class="strip-head"><h3>Prognozė</h3><span class="dim" style="margin-left:auto;font-size:12px">orientacinė</span></div>
+  <div class="fc" id="forecast"><div class="note" style="padding:8px 6px">Skaičiuoju tipinį paros profilį iš 7 d. istorijos…</div></div>
+  <div class="note" style="padding:4px 18px 16px">Rytojaus kaina — tikra (paskelbiama ~14 val.). Tolimesnės dienos — spėjimas pagal pastarųjų 7 d. vidurkį tuo pačiu paros metu, ne biržos duomenys.</div>
+</section>
+
+<!-- SETTINGS -->
+<section class="card">
+  <details class="set" id="setDetails">
+    <summary>Nustatymai ir kainos dedamosios<span class="chev">›</span></summary>
+    <div class="set-body">
+      <div class="field">
+        <label>Tiekėjo marža <small>Ignitis „Išmanus–15“, ct/kWh be PVM</small></label>
+        <input type="number" id="fMarza" step="0.01" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>ESO + valstybės dedamosios <small>persiuntimas + VIAP + t.t., ct/kWh su PVM</small></label>
+        <input type="number" id="fEso" step="0.01" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>PVM <small>%</small></label>
+        <input type="number" id="fPvm" step="1" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>Pigios kainos slenkstis <small>galutinė ct/kWh — žemiau = „pigu“ + įspėjimas</small></label>
+        <input type="number" id="fThresh" step="0.5" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>Įspėjimai apie kritimą <small>kai atsidaro langas žemiau slenksčio (kol app atidaryta)</small></label>
+        <span class="switch"><input type="checkbox" id="fNotify"><span class="sl"></span></span>
+      </div>
+      <button class="btn" onclick="requestNotify()">🔔 Leisti pranešimus telefone</button>
+      <div class="note">
+        Fono pranešimai (kai app uždaryta) iPhone reikalauja atskiro serverio. Paprasčiausias kelias — <b>GitHub&nbsp;Actions + ntfy</b>: repo esantis darbas kas 15 min tikrina kainą ir siunčia į ntfy programėlę. Instrukcija — README.
+      </div>
+      <button class="btn" onclick="refresh(true)">↻ Atnaujinti dabar</button>
+    </div>
+  </details>
+</section>
+
+<div class="foot">
+  Duomenys: Elering / Nord Pool LT zona · kainos be galutinių dedamųjų yra biržos (EUR/MWh→ct/kWh).<br>
+  Laiko sprendimai priklauso tik nuo biržos kreivės — jie tikslūs net jei dedamąsias tikslinsi vėliau.
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   Biržos elektra — Nord Pool LT 15-min cockpit (single file)
+   ============================================================ */
+
+const TZ = "Europe/Vilnius";
+const REGION = "lt";
+const LS = "birzaLT.cfg.v1";
+const ELERING = "https://dashboard.elering.ee/api/nps/price";
+
+const DEFAULTS = {
+  marza: 1.29,     // ct/kWh be PVM (Ignitis Išmanus-15 — patikslink)
+  eso:   6.50,     // ct/kWh su PVM (ESO persiuntimas + VIAP + dedamosios — patikslink pagal ESO planą)
+  pvm:   21,       // %
+  thresh: 10.0,    // galutinė ct/kWh — cheap threshold + alert (virš ~8 ct dėl fiksuotos ESO dedamosios)
+  notify: false
+};
+let cfg = loadCfg();
+let RAW = [];            // [{ts, mwh}] merged (history + today + tomorrow) for LT
+let dayView = 0;         // 0 today, 1 tomorrow
+let notifiedSlots = new Set();
+
+function loadCfg(){
+  try{ return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(LS)||"{}")); }
+  catch(e){ return Object.assign({}, DEFAULTS); }
+}
+function saveCfg(){ try{ localStorage.setItem(LS, JSON.stringify(cfg)); }catch(e){} }
+
+/* ---------- time helpers (Vilnius via Intl) ---------- */
+const vParts = (()=> {
+  const f = new Intl.DateTimeFormat("lt-LT",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false});
+  return (tsSec)=>{
+    const p = {}; for(const x of f.formatToParts(new Date(tsSec*1000))) p[x.type]=x.value;
+    const hh = p.hour==="24" ? "00" : p.hour;
+    return {
+      ymd: `${p.year}-${p.month}-${p.day}`,
+      hh: hh, mm: p.minute,
+      slot: (parseInt(hh,10)*60 + parseInt(p.minute,10))/15|0,   // 0..95
+      label: `${hh}:${p.minute}`
+    };
+  };
+})();
+function nowSec(){ return Math.floor(Date.now()/1000); }
+function ymdOffset(ymd, days){
+  // ymd -> Date at 12:00 UTC (safe from DST) + days
+  const [y,m,d]=ymd.split("-").map(Number);
+  const dt=new Date(Date.UTC(y,m-1,d,12,0,0)); dt.setUTCDate(dt.getUTCDate()+days);
+  const p=new Intl.DateTimeFormat("lt-LT",{timeZone:"UTC",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(dt);
+  const o={}; for(const x of p)o[x.type]=x.value; return `${o.year}-${o.month}-${o.day}`;
+}
+function weekdayName(ymd){
+  const [y,m,d]=ymd.split("-").map(Number);
+  const dt=new Date(Date.UTC(y,m-1,d,12));
+  return new Intl.DateTimeFormat("lt-LT",{timeZone:"UTC",weekday:"long"}).format(dt);
+}
+function isWeekend(ymd){
+  const [y,m,d]=ymd.split("-").map(Number);
+  const wd=new Date(Date.UTC(y,m-1,d,12)).getUTCDay(); // 0 Sun .. 6 Sat
+  return wd===0||wd===6;
+}
+
+/* ---------- pricing ---------- */
+// Elering price is EUR/MWh, no VAT.
+function spotCt(mwh){ return mwh/10; }                 // EUR/MWh -> ct/kWh (no VAT)
+function finalCt(mwh){
+  const spot = spotCt(mwh);
+  const pvm = 1 + (cfg.pvm||0)/100;
+  return (spot + cfg.marza)*pvm + cfg.eso;             // ct/kWh, all-in
+}
+function fmt(n, d=1){ return (n==null||isNaN(n)) ? "—" : n.toFixed(d); }
+
+/* ---------- color ramp by final price ---------- */
+function bandColor(ct){
+  // domain ~ [0 .. 25] ct/kWh mapped cheap->mid->dear (final price)
+  const lo=cfg.thresh, hi=Math.max(cfg.thresh+14, 18);
+  const t = Math.max(0, Math.min(1, (ct-lo)/(hi-lo)));
+  // teal -> amber (0..0.5) -> rose (0.5..1)
+  const c1=[34,211,183], c2=[231,176,8], c3=[244,85,110];
+  let a,b,f;
+  if(t<0.5){ a=c1;b=c2;f=t/0.5; } else { a=c2;b=c3;f=(t-0.5)/0.5; }
+  const mix=a.map((v,i)=>Math.round(v+(b[i]-v)*f));
+  return `rgb(${mix[0]},${mix[1]},${mix[2]})`;
+}
+function bandInfo(ct){
+  if(ct<=cfg.thresh) return {name:"Pigu", col:"var(--cheap)", ic:"✅"};
+  if(ct<=cfg.thresh+8) return {name:"Vidutiniška", col:"var(--mid)", ic:"○"};
+  return {name:"Brangu", col:"var(--dear)", ic:"⚠️"};
+}
+
+/* ---------- data fetch ---------- */
+async function fetchRange(startSec, endSec){
+  const s=new Date(startSec*1000).toISOString().replace(/\.\d+Z$/,".000Z");
+  const e=new Date(endSec*1000).toISOString().replace(/\.\d+Z$/,".999Z");
+  const url=`${ELERING}?start=${encodeURIComponent(s)}&end=${encodeURIComponent(e)}`;
+  // 1) direct
+  try{
+    const r=await fetch(url,{headers:{accept:"application/json"}});
+    if(r.ok){ const j=await r.json(); const arr=(j.data&&j.data[REGION])||[]; if(arr.length) return arr.map(x=>({ts:x.timestamp,mwh:x.price})); }
+  }catch(e){/* CORS/offline -> fallback */}
+  // 2) same-origin snapshot from GitHub Action
+  try{
+    const r=await fetch("./data/prices.json",{cache:"no-store"});
+    if(r.ok){
+      const j=await r.json();
+      const arr=(j.data&&j.data[REGION])|| j[REGION] || j.lt || [];
+      return arr.map(x=>({ts:x.timestamp||x.ts,mwh:x.price!=null?x.price:x.mwh}))
+                .filter(p=>p.ts>=startSec-1&&p.ts<=endSec+1);
+    }
+  }catch(e){}
+  return null;
+}
+
+async function refresh(manual){
+  const now=nowSec();
+  const t=vParts(now);
+  const today=t.ymd;
+  // window: 7 days back .. day after tomorrow
+  const startSec = Math.floor(Date.parse(ymdOffset(today,-7)+"T00:00:00Z")/1000) - 3*3600;
+  const endSec   = Math.floor(Date.parse(ymdOffset(today, 2)+"T00:00:00Z")/1000) + 3*3600;
+  const data = await fetchRange(startSec,endSec);
+  if(data && data.length){
+    RAW = data.sort((a,b)=>a.ts-b.ts);
+    setStatus(true, `Atnaujinta ${t.label}`);
+    render();
+    if(manual) toast("Kainos atnaujintos");
+  } else {
+    setStatus(false, "Nepavyko gauti");
+    if(!RAW.length) document.getElementById("adviceText").textContent="Nepavyko gauti kainų. Patikrink ryšį arba įjunk GitHub Action atsarginį šaltinį (README).";
+    if(manual) toast("Nepavyko gauti kainų");
+  }
+}
+
+function setStatus(live, txt){
+  document.getElementById("statusText").textContent=txt;
+  document.getElementById("statusText").classList.remove("skeleton");
+  document.getElementById("liveDot").className="live-dot"+(live?"":" stale");
+}
+
+/* ---------- slice helpers ---------- */
+function slotsForDay(ymd){
+  const out=RAW.filter(p=>vParts(p.ts).ymd===ymd);
+  return out.map(p=>({...p, ...vParts(p.ts)}));
+}
+function currentSlot(){
+  const now=nowSec();
+  // the active 15-min block containing now
+  let cur=null;
+  for(const p of RAW){ if(p.ts<=now) cur=p; else break; }
+  return cur;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render(){
+  renderHero();
+  renderStrip();
+  renderChart();
+  renderWindows();
+  renderStats();
+  renderForecast();
+  checkAlerts();
+}
+
+/* ---- hero ---- */
+function renderHero(){
+  const cur=currentSlot();
+  if(!cur) return;
+  const ct=finalCt(cur.mwh), spot=spotCt(cur.mwh);
+  const b=bandInfo(ct);
+  document.getElementById("priceBig").textContent=fmt(ct);
+  document.getElementById("pxSpot").textContent=fmt(spot,2);
+  // 24h avg (final)
+  const now=nowSec();
+  const win=RAW.filter(p=>p.ts>=now-24*3600&&p.ts<=now);
+  const avg=win.length?win.reduce((a,p)=>a+finalCt(p.mwh),0)/win.length:null;
+  const dEl=document.getElementById("pxDelta");
+  if(avg!=null){ const d=ct-avg; dEl.textContent=(d>=0?"+":"")+fmt(d,1); dEl.style.color=d<=0?"var(--cheap)":"var(--dear)"; }
+  const tag=document.getElementById("bandTag");
+  tag.style.color=b.col; document.getElementById("bandName").textContent=b.name;
+
+  // advice: compare with today's remaining + look for cheap window soon
+  const today=vParts(now).ymd;
+  const day=slotsForDay(today).map(p=>({...p, ct:finalCt(p.mwh)}));
+  const future=day.filter(p=>p.ts>=cur.ts);
+  const minFuture=future.reduce((m,p)=>p.ct<m.ct?p:m, future[0]||null);
+  const ic=document.getElementById("adviceIc"), tx=document.getElementById("adviceText");
+  if(ct<=cfg.thresh){
+    ic.textContent="✅"; tx.innerHTML=`Dabar <b>pigu</b> — geras metas paleisti galingus prietaisus (skalbimą, indaplovę, boilerį, EV).`;
+  } else if(minFuture && minFuture.ct<=cfg.thresh && minFuture.ts>cur.ts){
+    ic.textContent="⏳"; tx.innerHTML=`Dabar brangoka. Pigus langas šiandien <b>${minFuture.label}</b> (${fmt(minFuture.ct)} ct) — jei gali, atidėk.`;
+  } else if(minFuture && minFuture.ct < ct-1.5){
+    ic.textContent="⏳"; tx.innerHTML=`Pigiau bus <b>${minFuture.label}</b> (${fmt(minFuture.ct)} ct/kWh) — verta palaukti didesniam vartojimui.`;
+  } else {
+    ic.textContent="○"; tx.innerHTML=`Kaina artima paros vidurkiui ir žemiau nekris — didelio skirtumo laukti neverta.`;
+  }
+}
+
+/* ---- day strip ---- */
+function setDay(d){
+  dayView=d;
+  document.getElementById("tabToday").setAttribute("aria-selected", d===0);
+  document.getElementById("tabTom").setAttribute("aria-selected", d===1);
+  renderStrip(); renderChart(); renderStats();
+}
+function renderStrip(){
+  const now=nowSec(), today=vParts(now).ymd;
+  const ymd = dayView===0? today : ymdOffset(today,1);
+  const day = slotsForDay(ymd).sort((a,b)=>a.slot-b.slot);
+  const wrap=document.getElementById("daystrip");
+  const ro=document.getElementById("stripReadout");
+  if(!day.length){
+    wrap.innerHTML=""; 
+    ro.innerHTML = dayView===1
+      ? `<span class="faint">Rytojaus kainos dar nepaskelbtos (bus ~14 val.)</span><span></span>`
+      : `<span class="faint">Nėra duomenų</span><span></span>`;
+    return;
+  }
+  const cts=day.map(p=>finalCt(p.mwh));
+  const mn=Math.min(...cts), mx=Math.max(...cts), rng=Math.max(0.5,mx-mn);
+  const curTs=(currentSlot()||{}).ts;
+  wrap.innerHTML=day.map(p=>{
+    const ct=finalCt(p.mwh);
+    const h=18+Math.round((ct-mn)/rng*46);
+    const isNow = dayView===0 && p.ts===curTs;
+    const past = dayView===0 && p.ts< (curTs||0);
+    return `<div class="seg${isNow?' now':''}${past?' past':''}" style="height:${h}px;background:${bandColor(ct)}"
+      data-l="${p.label}" data-c="${fmt(ct)}" data-s="${fmt(spotCt(p.mwh),2)}"
+      onpointerdown="segTap(this)"></div>`;
+  }).join("");
+  // default readout = day min
+  const iMin=cts.indexOf(mn);
+  ro.innerHTML=`<span>Pigiausia <b>${day[iMin].label}</b> · ${fmt(mn)} ct</span><span>Vidurkis <b>${fmt(cts.reduce((a,b)=>a+b,0)/cts.length)}</b> ct</span>`;
+}
+function segTap(el){
+  document.getElementById("stripReadout").innerHTML=
+    `<span><b>${el.dataset.l}</b> · galutinė <b>${el.dataset.c}</b> ct/kWh</span><span>biržos ${el.dataset.s} ct</span>`;
+}
+
+/* ---- SVG chart ---- */
+let CHART=[]; // rendered points {x, ts, ct, label}
+let CHART_W=700;
+function renderChart(){
+  const svg=document.getElementById("chart");
+  // measure actual pixel width so viewBox maps 1:1 (no text distortion with preserveAspectRatio=none)
+  CHART_W = Math.max(320, Math.round(svg.getBoundingClientRect().width || svg.clientWidth || 700));
+  svg.setAttribute("viewBox", `0 0 ${CHART_W} 190`);
+  const now=nowSec(), today=vParts(now).ymd;
+  // show selected day; if today, also append tomorrow if present for continuity
+  let ymds = dayView===0 ? [today, ymdOffset(today,1)] : [ymdOffset(today,1)];
+  let pts=[];
+  for(const y of ymds) pts=pts.concat(slotsForDay(y));
+  pts=pts.sort((a,b)=>a.ts-b.ts).map(p=>({ts:p.ts,ct:finalCt(p.mwh),label:vParts(p.ts).label,ymd:vParts(p.ts).ymd}));
+  if(pts.length<2){ svg.innerHTML=`<text x="16" y="100" fill="#54626F" font-size="13">Nepakanka duomenų</text>`; CHART=[]; return; }
+  const W=CHART_W,H=190, padL=6,padR=6,padT=14,padB=22;
+  const cts=pts.map(p=>p.ct);
+  let mn=Math.min(...cts), mx=Math.max(...cts); const pad=(mx-mn)*0.12||1; mn-=pad; mx+=pad;
+  const X=i=>padL+(W-padL-padR)*i/(pts.length-1);
+  const Y=v=>padT+(H-padT-padB)*(1-(v-mn)/(mx-mn));
+  CHART=pts.map((p,i)=>({...p,x:X(i)}));
+  // area path
+  let line=`M ${X(0).toFixed(1)} ${Y(pts[0].ct).toFixed(1)}`;
+  for(let i=1;i<pts.length;i++) line+=` L ${X(i).toFixed(1)} ${Y(pts[i].ct).toFixed(1)}`;
+  const area=line+` L ${X(pts.length-1).toFixed(1)} ${(H-padB).toFixed(1)} L ${X(0).toFixed(1)} ${(H-padB).toFixed(1)} Z`;
+  // threshold line
+  const yT=Y(cfg.thresh);
+  const inRange = cfg.thresh>mn && cfg.thresh<mx;
+  // now marker
+  const cur=currentSlot();
+  let nowX=null;
+  if(dayView===0 && cur){ const idx=pts.findIndex(p=>p.ts===cur.ts); if(idx>=0) nowX=X(idx); }
+  // day divider (today|tomorrow)
+  let divX=null;
+  if(dayView===0){ const idx=pts.findIndex(p=>p.ymd!==today); if(idx>0) divX=X(idx); }
+  // gradient stops from data colors -> build vertical segments as colored strokes
+  let segs="";
+  for(let i=1;i<pts.length;i++){
+    segs+=`<line x1="${X(i-1).toFixed(1)}" y1="${Y(pts[i-1].ct).toFixed(1)}" x2="${X(i).toFixed(1)}" y2="${Y(pts[i].ct).toFixed(1)}" stroke="${bandColor((pts[i-1].ct+pts[i].ct)/2)}" stroke-width="2.4" stroke-linecap="round"/>`;
+  }
+  svg.innerHTML=`
+    <defs><linearGradient id="ar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgba(79,184,245,.16)"/><stop offset="1" stop-color="rgba(79,184,245,0)"/>
+    </linearGradient></defs>
+    <path d="${area}" fill="url(#ar)"/>
+    ${inRange?`<line x1="${padL}" y1="${yT.toFixed(1)}" x2="${W-padR}" y2="${yT.toFixed(1)}" stroke="var(--cheap)" stroke-width="1" stroke-dasharray="3 4" opacity=".55"/>
+      <text x="${W-padR}" y="${(yT-4).toFixed(1)}" text-anchor="end" fill="var(--cheap)" font-size="10" opacity=".8">slenkstis ${fmt(cfg.thresh)}</text>`:``}
+    ${divX!=null?`<line x1="${divX.toFixed(1)}" y1="${padT}" x2="${divX.toFixed(1)}" y2="${H-padB}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 3"/>
+      <text x="${(divX+4).toFixed(1)}" y="${padT+9}" fill="var(--ink-faint)" font-size="9.5">rytoj</text>`:``}
+    ${segs}
+    ${nowX!=null?`<line x1="${nowX.toFixed(1)}" y1="${padT-4}" x2="${nowX.toFixed(1)}" y2="${H-padB}" stroke="var(--live)" stroke-width="1.4"/>
+      <circle cx="${nowX.toFixed(1)}" cy="${Y(cur?finalCt(cur.mwh):mn).toFixed(1)}" r="3.5" fill="var(--live)"/>`:``}
+    <line id="cx" x1="-9" x2="-9" y1="${padT}" y2="${H-padB}" stroke="var(--ink-dim)" stroke-width="1" opacity="0"/>
+    <text x="${padL}" y="12" fill="var(--ink-faint)" font-size="10">${fmt(mx,1)}</text>
+    <text x="${padL}" y="${H-padB+13}" fill="var(--ink-faint)" font-size="10">${fmt(mn,1)} ct/kWh</text>
+  `;
+  document.getElementById("chartTip").innerHTML = dayView===0
+    ? `<span class="faint">Šiandien${divX!=null?" + rytoj":""} · veskite pirštą kreive</span>`
+    : `<span class="faint">Rytojaus kaina</span>`;
+}
+function chartHover(ev){
+  if(!CHART.length) return;
+  const svg=document.getElementById("chart"), r=svg.getBoundingClientRect();
+  const px=(ev.clientX-r.left)/r.width*CHART_W;
+  let best=CHART[0]; for(const p of CHART) if(Math.abs(p.x-px)<Math.abs(best.x-px)) best=p;
+  const cx=document.getElementById("cx"); if(cx){ cx.setAttribute("x1",best.x); cx.setAttribute("x2",best.x); cx.setAttribute("opacity",".5"); }
+  document.getElementById("chartTip").innerHTML=`<b>${best.label}</b> · <b>${fmt(best.ct)}</b> ct/kWh <span class="faint">(${best.ymd===vParts(nowSec()).ymd?"šiandien":"rytoj"})</span>`;
+}
+function chartLeave(){
+  const cx=document.getElementById("cx"); if(cx) cx.setAttribute("opacity","0");
+  document.getElementById("chartTip").innerHTML= dayView===0?`<span class="faint">Šiandien · veskite pirštą kreive</span>`:`<span class="faint">Rytojaus kaina</span>`;
+}
+
+/* ---- windows + load recommendations ---- */
+function bestWindow(day, hours){
+  // find contiguous block of length n (15-min slots) with lowest avg
+  const n=Math.round(hours*4); if(day.length<n) return null;
+  let bi=0,bv=Infinity;
+  for(let i=0;i+n<=day.length;i++){ let s=0; for(let k=0;k<n;k++)s+=day[i+k].ct; const a=s/n; if(a<bv){bv=a;bi=i;} }
+  return {start:day[bi], end:day[bi+n-1], avg:bv};
+}
+function renderWindows(){
+  const now=nowSec(), today=vParts(now).ymd;
+  const day=slotsForDay(today).map(p=>({...p,ct:finalCt(p.mwh)})).sort((a,b)=>a.ts-b.ts);
+  if(!day.length) return;
+  const cts=day.map(p=>p.ct);
+  const mn=Math.min(...cts), mx=Math.max(...cts);
+  const iMin=cts.indexOf(mn), iMax=cts.indexOf(mx);
+  document.getElementById("wMinV").textContent=fmt(mn)+" ct";
+  document.getElementById("wMinV").style.color="var(--cheap)";
+  document.getElementById("wMinR").textContent=day[iMin].label;
+  document.getElementById("wMaxV").textContent=fmt(mx)+" ct";
+  document.getElementById("wMaxV").style.color="var(--dear)";
+  document.getElementById("wMaxR").textContent=day[iMax].label;
+
+  // next cheap window (from now)
+  const fut=day.filter(p=>p.ts>=(currentSlot()||{ts:now}).ts);
+  const cheapNext=fut.find(p=>p.ct<=cfg.thresh) || (fut.length?fut.reduce((m,p)=>p.ct<m.ct?p:m,fut[0]):null);
+  const nc=document.getElementById("nextCheap");
+  if(cheapNext){
+    const mins=Math.max(0,Math.round((cheapNext.ts-now)/60));
+    const when = mins<=0?"dabar":`po ${mins<60?mins+" min":Math.round(mins/60*10)/10+" val"}`;
+    nc.innerHTML=`<span class="ic">🎯</span><div style="flex:1"><div class="lab" style="color:var(--ink-faint)">Artimiausias pigus langas</div>
+      <div style="margin-top:3px"><span class="big">${cheapNext.label}</span> <span class="dim">· ${fmt(cheapNext.ct)} ct/kWh · ${when}</span></div></div>`;
+  } else nc.innerHTML=`<span class="faint">Šiandien pigių langų nebeliko</span>`;
+
+  // load recommendations — best contiguous window today (from now onward preferred)
+  const pool = fut.length>=4 ? fut : day;
+  const loads=[
+    {ic:"🧺",nm:"Skalbimas",h:2},
+    {ic:"🍽️",nm:"Indaplovė",h:2},
+    {ic:"🔌",nm:"EV / boileris",h:3},
+    {ic:"🍞",nm:"Orkaitė / kepimas",h:1}
+  ];
+  document.getElementById("loads").innerHTML=loads.map(l=>{
+    const w=bestWindow(pool,l.h);
+    if(!w) return "";
+    const col=bandColor(w.avg);
+    return `<div class="load"><span class="ic">${l.ic}</span>
+      <div><div class="nm">${l.nm}</div><div class="hint">geriausias ${l.h} val langas · vid. ${fmt(w.avg)} ct/kWh</div></div>
+      <span class="win-badge" style="color:${col}">${w.start.label}–${w.end.label}</span></div>`;
+  }).join("");
+}
+
+/* ---- stats ---- */
+function renderStats(){
+  const now=nowSec(), today=vParts(now).ymd;
+  const ymd=dayView===0?today:ymdOffset(today,1);
+  const day=slotsForDay(ymd).map(p=>finalCt(p.mwh));
+  document.getElementById("statScope").textContent = dayView===0?"šiandien":"rytoj";
+  document.getElementById("statScope").parentElement.querySelector("h3").textContent="Statistika";
+  if(day.length){
+    const avg=day.reduce((a,b)=>a+b,0)/day.length, mn=Math.min(...day), mx=Math.max(...day);
+    document.getElementById("sAvg").textContent=fmt(avg);
+    document.getElementById("sMin").textContent=fmt(mn);
+    document.getElementById("sMax").textContent=fmt(mx);
+    document.getElementById("sSpread").textContent=fmt(mx-mn);
+    const cheap=day.filter(v=>v<=cfg.thresh).length;
+    document.getElementById("sCheapH").textContent=fmt(cheap/4,1)+" h";
+  }
+  // 7-day avg (final)
+  const wStart=now-7*24*3600;
+  const wk=RAW.filter(p=>p.ts>=wStart&&p.ts<=now).map(p=>finalCt(p.mwh));
+  document.getElementById("sWeek").textContent = wk.length?fmt(wk.reduce((a,b)=>a+b,0)/wk.length):"—";
+}
+
+/* ---- forecast (typical profile from history) ---- */
+function renderForecast(){
+  const now=nowSec(), today=vParts(now).ymd;
+  // build slot profiles from last 7 full days, split weekday/weekend, using SPOT (add-ons constant)
+  const hist=RAW.filter(p=>p.ts<now && p.ts>=now-7*24*3600);
+  const prof={wd:Array.from({length:96},()=>[]), we:Array.from({length:96},()=>[])};
+  for(const p of hist){ const v=vParts(p.ts); (isWeekend(v.ymd)?prof.we:prof.wd)[v.slot].push(finalCt(p.mwh)); }
+  const avgAt=(we,slot)=>{ const a=(we?prof.we:prof.wd)[slot]; return a.length?a.reduce((x,y)=>x+y,0)/a.length:null; };
+  const haveHist=hist.length>=96;
+  const el=document.getElementById("forecast");
+  if(!haveHist){ el.innerHTML=`<div class="note" style="padding:8px 6px">Nepakanka istorijos profiliui (reikia bent 1 d.). Bus tikslesnis po kelių paleidimų / kai veiks GitHub Action.</div>`; return; }
+  // next 3 days that are NOT covered by real data (skip today & tomorrow-if-present)
+  const tomHas = slotsForDay(ymdOffset(today,1)).length>0;
+  let days=[];
+  const startOff = tomHas?2:1;
+  for(let k=startOff;k<startOff+3;k++) days.push(ymdOffset(today,k));
+  el.innerHTML=days.map(ymd=>{
+    const we=isWeekend(ymd);
+    const vals=[]; for(let s=0;s<96;s++){ const v=avgAt(we,s); if(v!=null) vals.push({s,v}); }
+    if(!vals.length) return "";
+    const mn=Math.min(...vals.map(x=>x.v)), mx=Math.max(...vals.map(x=>x.v)), rng=Math.max(0.5,mx-mn);
+    const avg=vals.reduce((a,x)=>a+x.v,0)/vals.length;
+    const iMin=vals.reduce((m,x)=>x.v<m.v?x:m,vals[0]);
+    const bars=vals.map(x=>`<div class="seg" style="height:${8+Math.round((x.v-mn)/rng*26)}px;background:${bandColor(x.v)}"></div>`).join("");
+    const nm=weekdayName(ymd), dd=ymd.slice(8)+"-"+ymd.slice(5,7);
+    return `<div class="fc-day"><div class="fh"><span class="d">${nm[0].toUpperCase()+nm.slice(1)}</span><span class="dim" style="font-size:11px">${dd}</span>
+      <span class="avg">vid ${fmt(avg)} · pigiausia ~${String(Math.floor(iMin.s/4)).padStart(2,"0")}:${String((iMin.s%4)*15).padStart(2,"0")}</span></div>
+      <div class="fc-strip">${bars}</div></div>`;
+  }).join("");
+}
+
+/* ---- alerts (foreground) ---- */
+function checkAlerts(){
+  if(!cfg.notify) return;
+  if(!("Notification" in window) || Notification.permission!=="granted") return;
+  const now=nowSec();
+  const cur=currentSlot(); if(!cur) return;
+  const ct=finalCt(cur.mwh);
+  const key=cur.ts;
+  if(ct<=cfg.thresh && !notifiedSlots.has(key)){
+    notifiedSlots.add(key);
+    try{ new Notification("⚡ Pigi elektra dabar", {body:`${fmt(ct)} ct/kWh (žemiau ${fmt(cfg.thresh)}). Geras metas vartoti.`, tag:"cheap-now"}); }catch(e){}
+  }
+}
+async function requestNotify(){
+  if(!("Notification" in window)){ toast("Šis įrenginys nepalaiko pranešimų"); return; }
+  const p=await Notification.requestPermission();
+  if(p==="granted"){ cfg.notify=true; document.getElementById("fNotify").checked=true; saveCfg(); toast("Pranešimai įjungti"); }
+  else toast("Pranešimai neįjungti");
+}
+
+/* ---------- settings binding ---------- */
+function bindSettings(){
+  const map=[["fMarza","marza"],["fEso","eso"],["fPvm","pvm"],["fThresh","thresh"]];
+  for(const [id,key] of map){
+    const el=document.getElementById(id); el.value=cfg[key];
+    el.addEventListener("change",()=>{ const v=parseFloat(el.value); if(!isNaN(v)){cfg[key]=v; saveCfg(); render(); }});
+  }
+  const nf=document.getElementById("fNotify"); nf.checked=!!cfg.notify;
+  nf.addEventListener("change",()=>{
+    if(nf.checked && (!("Notification" in window)||Notification.permission!=="granted")) requestNotify();
+    cfg.notify=nf.checked; saveCfg();
+  });
+}
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2200); }
+
+/* ---------- boot ---------- */
+bindSettings();
+refresh(false);
+setInterval(()=>{ if(RAW.length){ renderHero(); renderStrip(); renderWindows(); checkAlerts(); } }, 20000); // live "now" marker
+setInterval(()=>refresh(false), 5*60*1000); // data refresh
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) refresh(false); });
+let rzT; window.addEventListener("resize",()=>{ clearTimeout(rzT); rzT=setTimeout(()=>{ if(RAW.length){ renderChart(); renderStrip(); } },150); });
+
+/* ---------- service worker ---------- */
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>

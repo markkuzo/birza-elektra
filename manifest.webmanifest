@@ -1,0 +1,18 @@
+{
+  "name": "Biržos elektra · LT",
+  "short_name": "Biržos elektra",
+  "description": "Nord Pool LT biržos elektros kaina realiu laiku (15 min), statistika, rekomendacijos ir įspėjimai apie pigią elektrą.",
+  "lang": "lt",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A0E13",
+  "theme_color": "#0A0E13",
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "./icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
